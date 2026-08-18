@@ -3,7 +3,7 @@
 ## 1. Project Overview
 
 This project analyzes the **HCV (Hepatitis C Virus) dataset** from the UCI Machine Learning Repository and develops machine-learning models to predict the patient's disease stage.
-
+[https://archive.ics.uci.edu/dataset/891/cdc+diabetes+health+indicators](url)
 The main objective was not simply to maximize accuracy. Because the target variable represents an **ordered clinical progression**, the analysis treats the problem as **ordinal classification**:
 
 **Healthy → Suspect Blood Donor → Hepatitis → Fibrosis → Cirrhosis**
