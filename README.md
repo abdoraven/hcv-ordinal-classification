@@ -457,11 +457,7 @@ Stratified CV split
                            │
                            ▼
                        Evaluation
-```
 
-This structure is essential for obtaining an honest estimate of generalization performance.
-
----
 
 # 18. Overall Conclusion
 
@@ -482,3 +478,93 @@ The most important decisions were driven by the characteristics of the HCV datas
 The experiments also show that the best data-processing decision is not necessarily the most complicated one. Some transformations reduced performance, while median imputation produced only marginal differences compared with mean imputation.
 
 The overall lesson is that **data preprocessing should be driven by the biological meaning of the variables, statistical properties of the dataset, and experimentally validated model performance.**
+Here's a single chunk of technical details from your notebook that you can copy and paste into your README:
+
+```markdown
+## Technical Implementation Details
+
+### Libraries and Dependencies
+
+The analysis uses the following key libraries:
+
+- **mord** (ordinal classification) — Provides `LogisticAT` for true ordinal logistic regression
+- **scikit-learn** — For tree-based models, KNN, preprocessing, and evaluation
+- **imbalanced-learn** — Provides `SMOTE` for handling class imbalance inside pipelines
+- **pandas & numpy** — Data manipulation and numerical computing
+
+Installation:
+```bash
+pip install mord imbalanced-learn scikit-learn pandas numpy
+```
+
+### Modelling Approaches
+
+The four ordinal baseline models used are:
+
+1. **Ordinal Logistic Regression (mord)** — Uses `mord.LogisticAT(alpha=1.0)` for true ordinal-aware classification
+2. **Ordinal Random Forest (Regression-based)** — Trains `RandomForestRegressor` on ordinal targets (0–4), then rounds predictions to discrete classes
+3. **Ordinal Decision Tree (Regression-based)** — Trains `DecisionTreeRegressor` on ordinal targets, then rounds predictions
+4. **Ordinal KNN (Regression-based)** — Uses `KNeighborsRegressor(n_neighbors=5)` on ordinal targets, then rounds predictions
+
+### Pipeline Architecture
+
+All preprocessing steps are contained within a single `imblearn.pipeline.Pipeline` to prevent data leakage during cross-validation. Each fold independently performs:
+
+```
+Training Fold:
+  1. Imputation (SimpleImputer: mean or median)
+  2. Outlier Capping (OutlierCapper with IQR × 1.5 factor) OR Log Transform (log1p) OR None
+  3. Scaling (StandardScaler)
+  4. SMOTE (k_neighbors=1, random_state=42) for class balancing
+  5. Model Fit
+
+Validation Fold:
+  → Apply learned transformations (imputation params, scaling params, capping bounds)
+  → Prediction
+  → Evaluation
+```
+
+### Custom Transformers
+
+**OutlierCapper**: Identifies bounds using interquartile range (IQR):
+- Lower bound: Q1 − 1.5 × IQR
+- Upper bound: Q3 + 1.5 × IQR
+- Values outside bounds are clipped (applied to all features except binary Gender)
+
+**LogTransformer**: Applies `log1p(x)` transformation to reduce skewness (applied to all continuous features except Gender)
+
+### Cross-Validation Strategy
+
+- **Stratified K-Fold** with `n_splits=5`, `shuffle=True`, `random_state=42`
+- Stratification preserves target class distribution across folds (important for imbalanced data)
+- Each fold uses independent imputation bounds, scaling parameters, and SMOTE parameters
+
+### Evaluation Metrics
+
+1. **Accuracy**: Proportion of exact predictions (0–1, higher is better)
+2. **Mean Absolute Ordinal Error (MAE)**: Average absolute distance between predicted and true ordinal class (0–4, lower is better)
+3. **Quadratic Weighted Kappa (QWK)**: Ordinal agreement metric with quadratic penalties for distant predictions (−1 to 1, higher is better)
+   - Calculated using `cohen_kappa_score(y_true, y_pred, weights="quadratic")`
+
+### Experiments Conducted
+
+The notebook runs 7 comparison experiments:
+
+| # | Configuration | Features | Imputation | Outlier Handling |
+|---|---|---|---|---|
+| 1 | Baseline | 12 | Mean | Capping |
+| 2 | Drop missing | 12 | None (rows dropped) | Capping |
+| 3 | No outlier capping | 12 | Mean | None |
+| 4 | Log transform | 12 | Mean | Log1p |
+| 5 | AST/ALT ratio | 11 (AST, ALT replaced by ratio) | Mean | Capping |
+| 6 | Median impute | 12 | Median | Capping |
+| 7 | Reduced features | 9 (drop ALB, GGT, BIL) | Median | Capping |
+
+All experiments use stratified 5-fold cross-validation and SMOTE with `k_neighbors=1`.
+
+### Data Download
+
+The dataset is not committed to the repository. Download it from the [UCI Machine Learning Repository (HCV dataset)](https://archive.ics.uci.edu/dataset/698/hcv+data) and place it in the working directory as `hcvdat.csv`.
+
+Expected columns: `Age`, `Sex`, `ALB`, `ALP`, `ALT`, `AST`, `BIL`, `CHE`, `CHOL`, `CREA`, `GGT`, `PROT`, `Category`
+
